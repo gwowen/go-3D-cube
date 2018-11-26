@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-gl/gl/v3.3-core/gl"
 	"github.com/go-gl/glfw/v3.2/glfw"
+	"github.com/go-gl/mathgl/mgl32"
 	// "github.com/go-gl/mathgl/mgl32"
 )
 
@@ -55,6 +56,8 @@ func main() {
 		panic(err)
 	}
 
+	gl.Enable(gl.DEPTH_TEST)
+
 	version := gl.GoStr(gl.GetString(gl.VERSION))
 	fmt.Println("OpenGL version", version)
 
@@ -68,8 +71,64 @@ func main() {
 
 	gl.UseProgram(program)
 
+	var vao uint32
+	gl.GenVertexArrays(1, &vao)
+	gl.BindVertexArray(vao)
+
+	var vbo uint32
+	gl.GenBuffers(1, &vbo)
+	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
+	gl.BufferData(gl.ARRAY_BUFFER, len(cubeVertices)*4, gl.Ptr(cubeVertices), gl.STATIC_DRAW)
+
+	// position attribute
+	gl.VertexAttribPointer(0, 3, gl.FLOAT, false, 5*4, gl.PtrOffset(0))
+	gl.EnableVertexAttribArray(0)
+	// texture coord attribute
+	gl.VertexAttribPointer(1, 2, gl.FLOAT, false, 5*4, gl.PtrOffset(3*4))
+	gl.EnableVertexAttribArray(1)
+
+	textureUniform := gl.GetUniformLocation(program, gl.Str("texture1\x00"))
+	gl.Uniform1i(textureUniform, 0)
+
+	// projection := mgl32.Perspective(mgl32.DegToRad(45.0), float32(windowWidth)/windowHeight)
+	// load texture
+	texture1, err := loadTexture("container.jpg")
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	angle := 0.0
+	previousTime := glfw.GetTime()
+
 	for !window.ShouldClose() {
-		// Do OpenGL stuff.
+		gl.ClearColor(0.2, 0.3, 0.3, 1.0)
+		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+
+		// update
+		time := glfw.GetTime()
+		deltaTime := time - previousTime
+		previousTime = time
+
+		gl.ActiveTexture(gl.TEXTURE0)
+		gl.BindTexture(gl.TEXTURE_2D, texture1)
+
+		gl.UseProgram(program)
+
+		angle += deltaTime
+		model := mgl32.HomogRotate3D(float32(angle), mgl32.Vec3{0.5, 1.0, 0.0})
+		view := mgl32.Translate3D(0.0, 0.0, -3.0)
+		projection := mgl32.Perspective(mgl32.DegToRad(45.0), float32(windowWidth)/windowHeight, 0.1, 100)
+
+		// retrieve matrix uniform location
+		modelLoc := gl.GetUniformLocation(program, gl.Str("model\x00"))
+		viewLoc := gl.GetUniformLocation(program, gl.Str("view\x00"))
+		// pass them to shaders
+		gl.UniformMatrix4fv(modelLoc, 1, false, &model[0])
+		gl.UniformMatrix4fv(viewLoc, 1, false, &view[0])
+		projLoc := gl.GetUniformLocation(program, gl.Str("projection\x00"))
+		gl.UniformMatrix4fv(projLoc, 1, false, &projection[0])
+		gl.BindVertexArray(vao)
+		gl.DrawArrays(gl.TRIANGLES, 0, 6*2*3)
 		window.SwapBuffers()
 		glfw.PollEvents()
 	}
@@ -191,6 +250,7 @@ func loadTexture(file string) (uint32, error) {
 
 var cubeVertices = []float32{
 	// x   y     z     u     v
+	// bottom
 	-0.5, -0.5, -0.5, 0.0, 0.0,
 	0.5, -0.5, -0.5, 1.0, 0.0,
 	0.5, 0.5, -0.5, 1.0, 1.0,
