@@ -61,6 +61,8 @@ func main() {
 	// like shit
 	gl.Enable(gl.DEPTH_TEST)
 
+	window.SetKeyCallback(onKey)
+
 	// debug
 	// version := gl.GoStr(gl.GetString(gl.VERSION))
 	// fmt.Println("OpenGL version", version)
@@ -286,6 +288,13 @@ func loadTexture(file string) (uint32, error) {
 		gl.Ptr(rgba.Pix))
 
 	return texture, nil
+}
+
+func onKey(w *glfw.Window, key glfw.Key, scancode int,
+	action glfw.Action, mods glfw.ModifierKey) {
+	if key == glfw.KeyEscape && action == glfw.Press {
+		w.SetShouldClose(true)
+	}
 }
 
 var cubeVertices = []float32{
